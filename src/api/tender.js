@@ -46,10 +46,14 @@ export const tenderApi = {
 
   // Tenders
   listTenders: (params) => apiClient.get("/tenders", { params }),
+  // Listing types and categories (with counts) the list can be filtered by; optionally for one portal
+  getFacets:   (portal)  => apiClient.get("/tenders/facets", { params: portal ? { portal } : {} }),
   getTender:   (id)    => apiClient.get(`/tenders/${id}`),
 
   // Portals
   listPortals: ()      => apiClient.get("/portals"),
+  // Real health of every portal (healthy / failing / stale / disabled / unknown), from the scrape logs
+  getPortalsHealth: () => apiClient.get("/portals/health"),
   triggerScrape: (portal) => apiClient.post(`/trigger/${portal}`),
 
   // Proxy toggle (proxy pool kharab ho tab OFF karke direct IP se test/scrape)

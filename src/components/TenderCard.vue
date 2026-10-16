@@ -31,6 +31,11 @@
       {{ tender.title || "Untitled tender" }}
     </h3>
 
+    <div v-if="tender.listing_type || tender.tender_category" class="flex flex-wrap items-center gap-1.5 mb-2">
+      <span v-if="tender.listing_type" class="badge-neutral">{{ listingTypeLabel(tender.listing_type) }}</span>
+      <span v-if="tender.tender_category" class="text-xs text-slate-500">{{ tender.tender_category }}</span>
+    </div>
+
     <!-- Org -->
     <div class="flex items-center gap-2 text-sm text-slate-600 mb-3">
       <BuildingOffice2Icon class="w-4 h-4 text-slate-400 shrink-0" />
@@ -76,6 +81,7 @@ import { StarIcon as StarSolidIcon } from "@heroicons/vue/24/solid";
 import StatusBadge from "./StatusBadge.vue";
 import { useBookmarks } from "../store/bookmarks";
 import { formatDate, daysUntil, getTenderStatus } from "../utils/dateUtils";
+import { listingTypeLabel } from "../utils/listingType";
 
 const props = defineProps({
   tender: { type: Object, required: true },
@@ -85,8 +91,8 @@ const { isBookmarked, toggle } = useBookmarks();
 const toast = useToast();
 
 const bookmarked = computed(() => isBookmarked(props.tender.id));
-const status     = computed(() => getTenderStatus(props.tender.closing_date));
-const daysLeft   = computed(() => daysUntil(props.tender.closing_date));
+const status     = computed(() => getTenderStatus(props.tender.closing_date, props.tender.status));
+const daysLeft   = computed(() => (props.tender.status === "closed" ? null : daysUntil(props.tender.closing_date)));
 
 const accentLine = computed(() => {
   const map = {

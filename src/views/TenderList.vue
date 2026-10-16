@@ -73,6 +73,8 @@
     <FilterPanel
       v-model="filters"
       :portals="portals"
+      :listing-types="facets.listing_types"
+      :categories="facets.categories"
       @change="onFilterChange"
     />
 
@@ -160,22 +162,41 @@ const viewMode = ref(localStorage.getItem("tender_view_mode") || "table");
 watch(viewMode, (val) => localStorage.setItem("tender_view_mode", val));
 
 const searchInput = ref(route.query.search || "");
+const facets = ref({ listing_types: [], categories: [] });
 const filters = ref({
   portal:         route.query.portal || "",
+  listing_type:   route.query.listing_type || "",
+  tender_category: route.query.tender_category || "",
   status:         route.query.status || "",
   closing_before: route.query.closing_before || "",
   sort_by:        route.query.sort_by || "published_date",
 });
 
 const hasActiveFilters = computed(() =>
-  filters.value.portal || filters.value.status ||
-  filters.value.closing_before || searchInput.value
+  filters.value.portal || filters.value.status || filters.value.listing_type ||
+  filters.value.tender_category || filters.value.closing_before || searchInput.value
 );
 
 async function loadPortals() {
   try {
     const res = await tenderApi.listPortals();
     portals.value = res.portals || [];
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// The list and category dropdowns offer what the chosen portal (or all of them) actually has.
+async function loadFacets() {
+  try {
+    const res = await tenderApi.getFacets(filters.value.portal || undefined);
+    facets.value = {
+      listing_types: res.listing_types || [],
+      categories:    res.categories || [],
+    };
+    const has = (list, v) => !v || list.some((f) => f.value === v);
+    if (!has(facets.value.listing_types, filters.value.listing_type)) filters.value.listing_type = "";
+    if (!has(facets.value.categories, filters.value.tender_category)) filters.value.tender_category = "";
   } catch (e) {
     console.error(e);
   }
@@ -213,8 +234,13 @@ const debouncedSearch = useDebounceFn(() => {
   loadTenders();
 }, 400);
 
-function onFilterChange() {
+let lastPortal = filters.value.portal;
+async function onFilterChange() {
   currentPage.value = 1;
+  if (filters.value.portal !== lastPortal) {      // a different portal has different lists and categories
+    lastPortal = filters.value.portal;
+    await loadFacets();
+  }
   loadTenders();
 }
 
@@ -232,8 +258,10 @@ function clearSearch() {
 
 function resetAll() {
   searchInput.value = "";
-  filters.value = { portal: "", status: "", closing_before: "", sort_by: "published_date" };
+  filters.value = { portal: "", listing_type: "", tender_category: "", status: "", closing_before: "", sort_by: "published_date" };
+  lastPortal = "";
   currentPage.value = 1;
+  loadFacets();
   loadTenders();
 }
 
@@ -259,6 +287,7 @@ watch(() => route.query.search, (val) => {
 
 onMounted(async () => {
   await loadPortals();
+  await loadFacets();
   await loadTenders();
 });
 </script>

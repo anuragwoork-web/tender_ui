@@ -178,11 +178,133 @@
           Configured Portals
           <span class="badge-neutral">{{ portals.length }}</span>
         </h2>
+
+        <!-- View toggle (remembered, like the tender list) -->
+        <div class="flex items-center bg-white border border-slate-200 rounded-lg p-1 shadow-soft">
+          <button
+            @click="viewMode = 'table'"
+            class="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-sm font-medium transition-all duration-200"
+            :class="viewMode === 'table' ? 'bg-primary-600 text-white shadow-soft' : 'text-slate-500 hover:text-slate-800'"
+          >
+            <TableCellsIcon class="w-4 h-4" />
+            Table
+          </button>
+          <button
+            @click="viewMode = 'cards'"
+            class="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-sm font-medium transition-all duration-200"
+            :class="viewMode === 'cards' ? 'bg-primary-600 text-white shadow-soft' : 'text-slate-500 hover:text-slate-800'"
+          >
+            <Squares2X2Icon class="w-4 h-4" />
+            Cards
+          </button>
+        </div>
       </div>
 
       <!-- Loading -->
       <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div v-for="i in 2" :key="i" class="card p-6 animate-pulse h-72" />
+      </div>
+
+      <!-- Portal table -->
+      <div v-else-if="viewMode === 'table'" class="card overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200">
+                <th v-for="h in TABLE_HEADS" :key="h.label"
+                    class="px-4 py-3 text-xs font-bold text-slate-600 uppercase tracking-wider whitespace-nowrap"
+                    :class="h.right ? 'text-right' : 'text-left'">
+                  {{ h.label }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="portal in portals" :key="portal.code"
+                  class="border-b border-slate-100 last:border-b-0 hover:bg-primary-50/40 transition-colors">
+                <!-- Portal -->
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-primary-500 to-indigo-700 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                      {{ portal.code?.slice(0, 2).toUpperCase() }}
+                    </div>
+                    <div class="min-w-0">
+                      <p class="font-semibold text-slate-900 leading-tight">{{ portal.name }}</p>
+                      <p class="text-xs text-slate-500 font-mono">{{ portal.code }}</p>
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Health -->
+                <td class="px-4 py-3 whitespace-nowrap" :title="healthOf(portal.code).error">
+                  <span :class="healthOf(portal.code).badge">
+                    <span class="w-1.5 h-1.5 rounded-full" :class="healthOf(portal.code).dot" />
+                    {{ healthOf(portal.code).label }}
+                  </span>
+                  <p class="text-[10px] text-slate-400 uppercase tracking-wider mt-1">{{ healthOf(portal.code).note }}</p>
+                  <p v-if="portal.code === 'ireps' && !irepsSession.valid" class="text-[10px] text-amber-600 mt-1">
+                    OTP login needed (Cards view)
+                  </p>
+                </td>
+
+                <!-- Type -->
+                <td class="px-4 py-3 text-sm text-slate-600 capitalize whitespace-nowrap">
+                  {{ (portal.portal_type || "—").replace("_", " ") }}
+                </td>
+
+                <!-- Total -->
+                <td class="px-4 py-3 text-right text-sm font-bold text-slate-900 tabular-nums">
+                  {{ (portalStats(portal.code).tender_count || 0).toLocaleString("en-IN") }}
+                </td>
+
+                <!-- Last run -->
+                <td class="px-4 py-3 text-sm text-slate-700 whitespace-nowrap">
+                  {{ portalStats(portal.code).last_scraped ? formatRelative(portalStats(portal.code).last_scraped) : "Never" }}
+                </td>
+
+                <!-- Runs today -->
+                <td class="px-4 py-3 text-right text-sm font-semibold text-slate-900 tabular-nums">
+                  {{ runsToday(portal.code) }}
+                </td>
+
+                <!-- Last 10 runs -->
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-0.5">
+                    <span
+                      v-for="(run, i) in last10Runs(portal.code)"
+                      :key="i"
+                      class="w-2.5 h-5 rounded-sm cursor-help"
+                      :class="runColor(run?.status)"
+                      :title="runTooltip(run)"
+                    />
+                  </div>
+                </td>
+
+                <!-- Website -->
+                <td class="px-4 py-3 max-w-[220px]">
+                  <a :href="portal.base_url" target="_blank" rel="noopener"
+                     class="flex items-center gap-1 text-xs text-slate-500 hover:text-primary-600 hover:underline">
+                    <GlobeAltIcon class="w-3.5 h-3.5 shrink-0" />
+                    <span class="truncate">{{ portal.base_url }}</span>
+                  </a>
+                </td>
+
+                <!-- Actions -->
+                <td class="px-4 py-3 text-right whitespace-nowrap">
+                  <button @click="triggerOne(portal.code)" :disabled="triggering"
+                          class="btn-primary inline-flex items-center gap-1.5 !px-3 !py-1.5 text-sm disabled:opacity-50">
+                    <BoltIcon class="w-4 h-4" />
+                    Trigger
+                  </button>
+                  <router-link :to="{ path: '/tenders', query: { portal: portal.code } }"
+                               class="btn-ghost inline-flex items-center gap-1.5 !px-3 !py-1.5 text-sm ml-1">
+                    <EyeIcon class="w-4 h-4" />
+                    View
+                  </router-link>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Portal cards -->
@@ -205,8 +327,11 @@
                   <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 via-primary-600 to-indigo-700 text-white flex items-center justify-center font-bold text-lg shadow-soft">
                     {{ portal.code?.slice(0, 2).toUpperCase() }}
                   </div>
-                  <div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center">
-                    <CheckIcon class="w-3 h-3 text-white" />
+                  <div
+                    class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center"
+                    :class="healthOf(portal.code).dot"
+                  >
+                    <CheckIcon v-if="healthOf(portal.code).status === 'healthy'" class="w-3 h-3 text-white" />
                   </div>
                 </div>
                 <div>
@@ -220,13 +345,16 @@
               </div>
 
               <!-- Health badge -->
-              <div class="flex flex-col items-end gap-1">
-                <span class="badge-success">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Healthy
+              <div class="flex flex-col items-end gap-1" :title="healthOf(portal.code).error">
+                <span :class="healthOf(portal.code).badge">
+                  <span
+                    class="w-1.5 h-1.5 rounded-full"
+                    :class="[healthOf(portal.code).dot, healthOf(portal.code).status === 'healthy' ? 'animate-pulse' : '']"
+                  />
+                  {{ healthOf(portal.code).label }}
                 </span>
                 <span class="text-[10px] text-slate-400 uppercase tracking-wider">
-                  Uptime 100%
+                  {{ healthOf(portal.code).note }}
                 </span>
               </div>
             </div>
@@ -441,7 +569,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { useToast } from "vue-toastification";
 import {
   BoltIcon,
@@ -450,6 +578,7 @@ import {
   EyeIcon,
   ArrowPathIcon,
   Squares2X2Icon,
+  TableCellsIcon,
   DocumentTextIcon,
   CheckIcon,
   ArrowTopRightOnSquareIcon,
@@ -466,7 +595,17 @@ import {
 import { tenderApi } from "../api/tender";
 import { formatRelative, formatDateTime } from "../utils/dateUtils";
 
+const viewMode = ref(localStorage.getItem("portal_view_mode") || "table");
+watch(viewMode, (val) => localStorage.setItem("portal_view_mode", val));
+
+const TABLE_HEADS = [
+  { label: "Portal" }, { label: "Health" }, { label: "Type" }, { label: "Tenders", right: true },
+  { label: "Last run" }, { label: "Runs today", right: true }, { label: "Last 10 runs" },
+  { label: "Website" }, { label: "Actions", right: true },
+];
+
 const portals          = ref([]);
+const health           = ref({});   // portal code -> row of /portals/health
 const stats            = ref({});
 const scheduledJobs    = ref([]);
 const schedulerRunning = ref(false);
@@ -677,6 +816,24 @@ const runMarkers = computed(() => {
   });
 });
 
+// The portal's real state, from /portals/health (derived from the scrape logs), not a fixed label.
+const HEALTH_LOOK = {
+  healthy:  { label: "Healthy",  badge: "badge-success", dot: "bg-emerald-500" },
+  failing:  { label: "Failing",  badge: "badge-danger",  dot: "bg-red-500" },
+  stale:    { label: "Stale",    badge: "badge-warning", dot: "bg-amber-500" },
+  disabled: { label: "Disabled", badge: "badge-neutral", dot: "bg-slate-400" },
+  unknown:  { label: "No runs yet", badge: "badge-neutral", dot: "bg-slate-300" },
+};
+
+function healthOf(code) {
+  const h = health.value[code];
+  const look = HEALTH_LOOK[h?.status] || HEALTH_LOOK.unknown;
+  let note = "";
+  if (h?.status === "failing") note = `${h.failure_streak} failed in a row`;
+  else if (h?.hours_since_success != null) note = `Last success ${h.hours_since_success}h ago`;
+  return { status: h?.status || "unknown", ...look, note, error: h?.last_error || "" };
+}
+
 // Last 10 runs for a portal
 function last10Runs(portalCode) {
   const filtered = logs.value.filter(l => l.portal === portalCode).slice(0, 10);
@@ -716,9 +873,18 @@ async function load() {
     ]);
     portals.value          = portalsRes.portals || [];
     stats.value            = statsRes;
-    scheduledJobs.value    = statusRes.jobs || [];
+    // /status lists every scheduler job: the scrape passes (03, 09, 15, 21), a portal health check at :30 of
+    // each of those hours, and a status refresh every hour at :05. Only the scrape passes are "runs" here;
+    // taking all three doubled the timeline and made the countdown count to the next :05.
+    const jobs = statusRes.jobs || [];
+    const scrapeJobs = jobs.filter(j => j.id === "scrape_all_portals");
+    scheduledJobs.value    = scrapeJobs.length ? scrapeJobs : jobs;
     schedulerRunning.value = statusRes.scheduler_running;
     logs.value             = logsRes.logs || [];
+    // Real portal health — alag fetch, fail ho to baaki page break na ho
+    tenderApi.getPortalsHealth()
+      .then(r => { health.value = Object.fromEntries((r.portals || []).map(p => [p.code, p])); })
+      .catch(() => {});
     // IREPS status alag fetch — fail ho to baaki page break na ho
     tenderApi.irepsStatus().then(r => { irepsSession.value = r; }).catch(() => {});
     // Proxy toggle state — alag fetch, fail ho to page break na ho

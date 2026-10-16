@@ -15,6 +15,36 @@
       <ChevronDownIcon class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
     </div>
 
+    <!-- List (what the portal calls the list the tender came from) -->
+    <div v-if="listingTypes.length" class="relative">
+      <select
+        v-model="local.listing_type"
+        @change="emitChange"
+        class="appearance-none input-field pr-9 cursor-pointer min-w-[160px]"
+      >
+        <option value="">All Lists</option>
+        <option v-for="f in listingTypes" :key="f.value" :value="f.value">
+          {{ listingTypeLabel(f.value) }} ({{ f.count.toLocaleString("en-IN") }})
+        </option>
+      </select>
+      <ChevronDownIcon class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+    </div>
+
+    <!-- Category -->
+    <div v-if="categories.length" class="relative">
+      <select
+        v-model="local.tender_category"
+        @change="emitChange"
+        class="appearance-none input-field pr-9 cursor-pointer min-w-[170px] max-w-[260px]"
+      >
+        <option value="">All Categories</option>
+        <option v-for="f in categories" :key="f.value" :value="f.value">
+          {{ f.value }} ({{ f.count.toLocaleString("en-IN") }})
+        </option>
+      </select>
+      <ChevronDownIcon class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+    </div>
+
     <!-- Status -->
     <div class="relative">
       <select
@@ -69,16 +99,21 @@
 <script setup>
 import { ref, computed, watch } from "vue";
 import { ChevronDownIcon, XMarkIcon } from "@heroicons/vue/24/outline";
+import { listingTypeLabel } from "../utils/listingType";
 
 const props = defineProps({
   modelValue: { type: Object, default: () => ({}) },
   portals:    { type: Array,  default: () => [] },
+  listingTypes: { type: Array, default: () => [] },   // [{ value, count }] from /tenders/facets
+  categories:   { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(["update:modelValue", "change"]);
 
 const local = ref({
   portal:         "",
+  listing_type:   "",
+  tender_category: "",
   status:         "",
   closing_before: "",
   sort_by:        "published_date",
@@ -90,7 +125,8 @@ watch(() => props.modelValue, (val) => {
 }, { deep: true });
 
 const hasFilters = computed(() =>
-  local.value.portal || local.value.status || local.value.closing_before
+  local.value.portal || local.value.status || local.value.closing_before ||
+  local.value.listing_type || local.value.tender_category
 );
 
 function emitChange() {
@@ -99,7 +135,7 @@ function emitChange() {
 }
 
 function clear() {
-  local.value = { portal: "", status: "", closing_before: "", sort_by: "published_date" };
+  local.value = { portal: "", listing_type: "", tender_category: "", status: "", closing_before: "", sort_by: "published_date" };
   emitChange();
 }
 </script>

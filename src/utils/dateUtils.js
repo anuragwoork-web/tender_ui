@@ -31,7 +31,10 @@ export function daysUntil(date) {
   }
 }
 
-export function getTenderStatus(closingDate) {
+// `storedStatus` is the tenders.status column. A tender the portal lists as awarded, archived or opened is
+// over whatever its closing date says (it may have none), so a stored "closed" wins over the date.
+export function getTenderStatus(closingDate, storedStatus) {
+  if (storedStatus === "closed") return { label: "Closed", type: "danger" };
   if (!closingDate) return { label: "Unknown", type: "neutral" };
   const days = daysUntil(closingDate);
   if (days === null) return { label: "Unknown", type: "neutral" };

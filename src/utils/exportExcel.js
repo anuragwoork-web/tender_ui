@@ -7,6 +7,9 @@ export async function exportTendersToExcel(tenders, filename = "tenders.xlsx") {
   sheet.columns = [
     { header: "ID",             key: "id",                width: 8 },
     { header: "Portal",         key: "portal_code",       width: 12 },
+    { header: "List",           key: "listing_type",      width: 16 },
+    { header: "Category",       key: "tender_category",   width: 26 },
+    { header: "Status",         key: "status",            width: 10 },
     { header: "Title",          key: "title",             width: 60 },
     { header: "Reference",      key: "tender_reference",  width: 30 },
     { header: "Organisation",   key: "organisation_name", width: 30 },
@@ -15,6 +18,7 @@ export async function exportTendersToExcel(tenders, filename = "tenders.xlsx") {
     { header: "Opening",        key: "opening_date",      width: 18 },
     { header: "Tender Fee",     key: "tender_fee",        width: 14 },
     { header: "EMD",            key: "emd_amount",        width: 14 },
+    { header: "Estimated Value", key: "estimated_value",  width: 16 },
     { header: "Detail URL",     key: "detail_url",        width: 50 },
   ];
 

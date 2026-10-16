@@ -44,6 +44,10 @@
               <p class="font-semibold text-slate-900 line-clamp-2 group-hover:text-primary-600 transition-colors">
                 {{ tender.title || "Untitled" }}
               </p>
+              <p v-if="tender.listing_type || tender.tender_category" class="mt-1 flex flex-wrap items-center gap-1.5">
+                <span v-if="tender.listing_type" class="badge-neutral">{{ listingTypeLabel(tender.listing_type) }}</span>
+                <span v-if="tender.tender_category" class="text-xs text-slate-500">{{ tender.tender_category }}</span>
+              </p>
             </td>
 
             <!-- Org -->
@@ -109,6 +113,7 @@ import { StarIcon as StarSolidIcon } from "@heroicons/vue/24/solid";
 import StatusBadge from "./StatusBadge.vue";
 import { useBookmarks } from "../store/bookmarks";
 import { formatDate, daysUntil, getTenderStatus } from "../utils/dateUtils";
+import { listingTypeLabel } from "../utils/listingType";
 
 defineProps({
   tenders: { type: Array, required: true },
@@ -117,8 +122,8 @@ defineProps({
 const { isBookmarked, toggle } = useBookmarks();
 const toast = useToast();
 
-const statusOf    = (t) => getTenderStatus(t.closing_date);
-const daysLeftOf  = (t) => daysUntil(t.closing_date);
+const statusOf    = (t) => getTenderStatus(t.closing_date, t.status);
+const daysLeftOf  = (t) => (t.status === "closed" ? null : daysUntil(t.closing_date));
 
 function onBookmark(tender) {
   toggle(tender);

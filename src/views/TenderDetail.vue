@@ -60,6 +60,7 @@
             <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
               {{ tender.portal_code }} · {{ tender.portal_name }}
             </span>
+            <span v-if="tender.listing_type" class="badge-neutral">{{ listingTypeLabel(tender.listing_type) }}</span>
             <span v-if="tender.tender_reference" class="text-xs text-slate-500 font-mono bg-slate-50 px-2.5 py-1 rounded-md border border-slate-200">
               # {{ tender.tender_reference }}
             </span>
@@ -232,6 +233,7 @@ import AccordionSection from "../components/AccordionSection.vue";
 import { tenderApi } from "../api/tender";
 import { formatDate, formatDateTime, formatRelative, getTenderStatus, daysUntil } from "../utils/dateUtils";
 import { useBookmarks } from "../store/bookmarks";
+import { listingTypeLabel } from "../utils/listingType";
 
 const route = useRoute();
 const toast = useToast();
@@ -243,7 +245,7 @@ const { isBookmarked, toggle } = useBookmarks();
 const bookmarked = computed(() => tender.value && isBookmarked(tender.value.id));
 
 const status = computed(() =>
-  tender.value ? getTenderStatus(tender.value.closing_date) : { type: "neutral", label: "" }
+  tender.value ? getTenderStatus(tender.value.closing_date, tender.value.status) : { type: "neutral", label: "" }
 );
 
 const accentLine = computed(() => {
@@ -267,7 +269,7 @@ const blobClass = computed(() => {
 });
 
 const closingHighlight = computed(() => {
-  const days = tender.value ? daysUntil(tender.value.closing_date) : null;
+  const days = tender.value && tender.value.status !== "closed" ? daysUntil(tender.value.closing_date) : null;
   if (days === null) return "";
   if (days < 0) return "text-red-600";
   if (days <= 3) return "text-amber-700 font-bold";

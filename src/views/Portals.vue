@@ -5,7 +5,7 @@
       <div>
         <h1 class="text-3xl font-bold text-slate-900">Portals</h1>
         <p class="text-slate-500 mt-1">
-          Manage scraper portals · automated 4 times daily
+          Collector portals · sweeps at 03:00, 09:00, 15:00, 21:00 IST (when the scheduler is on)
         </p>
       </div>
 
@@ -29,23 +29,6 @@
           Proxy: {{ proxyEnabled ? "ON" : "OFF" }}
         </button>
 
-        <!-- eProCURE DETAIL-MODE TOGGLE — OFF = sirf listing data, ON = detail page + CAPTCHA -->
-        <button
-          @click="toggleDetailMode"
-          :disabled="detailBusy"
-          class="flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-semibold transition-colors disabled:opacity-50"
-          :class="detailEnabled
-            ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-            : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'"
-          :title="detailEnabled
-            ? 'eProcure Detail ON — har tender ka detail page khol ke CAPTCHA solve + full detail. OFF karne pe sirf listing data.'
-            : 'eProcure Detail OFF — sirf listing table ka data save ho raha hai (CAPTCHA skip). ON karne pe full detail.'"
-        >
-          <ArrowPathIcon v-if="detailBusy" class="w-4 h-4 animate-spin" />
-          <DocumentMagnifyingGlassIcon v-else-if="detailEnabled" class="w-4 h-4" />
-          <DocumentTextIcon v-else class="w-4 h-4" />
-          eProcure Detail: {{ detailEnabled ? "ON" : "OFF" }}
-        </button>
         <button
           @click="load"
           class="btn-ghost flex items-center gap-2"
@@ -175,20 +158,24 @@
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
           <Squares2X2Icon class="w-5 h-5 text-slate-400" />
-          Configured Portals
+          Collector Portals
           <span class="badge-neutral">{{ portals.length }}</span>
         </h2>
+        <div class="relative">
+          <MagnifyingGlassIcon class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input v-model="portalSearch" type="text" placeholder="Find portal..." class="input-field pl-9 py-1.5 min-w-[220px]" />
+        </div>
       </div>
 
       <!-- Loading -->
-      <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div v-if="loading" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         <div v-for="i in 2" :key="i" class="card p-6 animate-pulse h-72" />
       </div>
 
       <!-- Portal cards -->
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         <div
-          v-for="portal in portals"
+          v-for="portal in shownPortals"
           :key="portal.code"
           class="group relative overflow-hidden rounded-2xl bg-white shadow-soft hover:shadow-card transition-all duration-300"
         >
@@ -203,9 +190,12 @@
               <div class="flex items-center gap-3">
                 <div class="relative">
                   <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-500 via-primary-600 to-indigo-700 text-white flex items-center justify-center font-bold text-lg shadow-soft">
-                    {{ portal.code?.slice(0, 2).toUpperCase() }}
+                    {{ portal.code?.slice(0, 3).toUpperCase() }}
                   </div>
-                  <div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center">
+                  <div
+                    v-if="health(portal).ok"
+                    class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center"
+                  >
                     <CheckIcon class="w-3 h-3 text-white" />
                   </div>
                 </div>
@@ -221,12 +211,12 @@
 
               <!-- Health badge -->
               <div class="flex flex-col items-end gap-1">
-                <span class="badge-success">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Healthy
+                <span :class="health(portal).badge">
+                  <span class="w-1.5 h-1.5 rounded-full" :class="health(portal).dot" />
+                  {{ health(portal).label }}
                 </span>
                 <span class="text-[10px] text-slate-400 uppercase tracking-wider">
-                  Uptime 100%
+                  {{ portal.platform || "not swept yet" }}<span v-if="portal.tier"> · tier {{ portal.tier }}</span>
                 </span>
               </div>
             </div>
@@ -248,10 +238,10 @@
               <div class="p-3 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/30 border border-blue-100">
                 <div class="flex items-center gap-1.5 text-blue-600 mb-1">
                   <DocumentTextIcon class="w-3.5 h-3.5" />
-                  <span class="text-[10px] font-bold uppercase tracking-wider">Total</span>
+                  <span class="text-[10px] font-bold uppercase tracking-wider">Active</span>
                 </div>
                 <p class="text-2xl font-bold text-slate-900 tabular-nums leading-tight">
-                  {{ (portalStats(portal.code).tender_count || 0).toLocaleString("en-IN") }}
+                  {{ (portal.active || 0).toLocaleString("en-IN") }}
                 </p>
               </div>
 
@@ -261,19 +251,17 @@
                   <span class="text-[10px] font-bold uppercase tracking-wider">Last Run</span>
                 </div>
                 <p class="text-sm font-bold text-slate-900 leading-tight">
-                  {{ portalStats(portal.code).last_scraped
-                      ? formatRelative(portalStats(portal.code).last_scraped)
-                      : "Never" }}
+                  {{ portal.sweeps.length ? formatRelative(portal.sweeps[0].started_at) : "Never" }}
                 </p>
               </div>
 
               <div class="p-3 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100/30 border border-amber-100">
                 <div class="flex items-center gap-1.5 text-amber-600 mb-1">
-                  <BoltIcon class="w-3.5 h-3.5" />
-                  <span class="text-[10px] font-bold uppercase tracking-wider">Runs Today</span>
+                  <DocumentMagnifyingGlassIcon class="w-3.5 h-3.5" />
+                  <span class="text-[10px] font-bold uppercase tracking-wider">Detail</span>
                 </div>
                 <p class="text-2xl font-bold text-slate-900 tabular-nums leading-tight">
-                  {{ runsToday(portal.code) }}
+                  {{ portal.active ? Math.round((portal.with_detail / portal.active) * 100) : 0 }}%
                 </p>
               </div>
             </div>
@@ -290,30 +278,17 @@
               </div>
               <div class="flex items-center gap-1">
                 <div
-                  v-for="(run, i) in last10Runs(portal.code)"
+                  v-for="(run, i) in last10Runs(portal)"
                   :key="i"
                   class="flex-1 h-8 rounded-md transition-all duration-200 hover:scale-110 cursor-help relative group/dot"
                   :class="runColor(run?.status)"
                   :title="runTooltip(run)"
                 >
                   <span class="absolute inset-0 flex items-center justify-center opacity-0 group-hover/dot:opacity-100 text-[9px] font-bold text-white transition-opacity">
-                    {{ run?.new_tenders || 0 }}
+                    {{ run?.new_count || 0 }}
                   </span>
                 </div>
               </div>
-            </div>
-
-            <!-- LAST CHECKPOINT -->
-            <div v-if="portalStats(portal.code).last_scraped_tender_id" class="mb-5">
-              <div class="flex items-center gap-1.5 mb-1.5">
-                <BookmarkIcon class="w-3 h-3 text-slate-400" />
-                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                  Last Checkpoint
-                </p>
-              </div>
-              <p class="text-xs font-mono text-slate-700 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200 truncate">
-                {{ portalStats(portal.code).last_scraped_tender_id }}
-              </p>
             </div>
 
             <!-- IREPS SESSION BANNER -->
@@ -453,7 +428,6 @@ import {
   DocumentTextIcon,
   CheckIcon,
   ArrowTopRightOnSquareIcon,
-  BookmarkIcon,
   ExclamationTriangleIcon,
   KeyIcon,
   ShieldCheckIcon,
@@ -461,18 +435,19 @@ import {
   SignalIcon,
   SignalSlashIcon,
   DocumentMagnifyingGlassIcon,
+  MagnifyingGlassIcon,
 } from "@heroicons/vue/24/outline";
 
 import { tenderApi } from "../api/tender";
 import { formatRelative, formatDateTime } from "../utils/dateUtils";
+import { runLook } from "../utils/runs";
 
 const portals          = ref([]);
-const stats            = ref({});
 const scheduledJobs    = ref([]);
 const schedulerRunning = ref(false);
 const loading          = ref(true);
 const triggering       = ref(false);
-const logs             = ref([]);
+const portalSearch     = ref("");
 const toast            = useToast();
 
 // Proxy toggle state
@@ -504,36 +479,6 @@ async function toggleProxy() {
     toast.error(`Proxy toggle failed: ${e.message}`);
   } finally {
     proxyBusy.value = false;
-  }
-}
-
-// eProcure detail-mode toggle state
-const detailEnabled = ref(false);   // OFF = sirf listing, ON = detail page + CAPTCHA
-const detailBusy    = ref(false);   // toggle in-flight
-
-async function refreshDetailMode() {
-  try {
-    const r = await tenderApi.getDetailMode();
-    detailEnabled.value = r.enabled;
-  } catch (e) {
-    // silent — optional feature
-  }
-}
-
-async function toggleDetailMode() {
-  detailBusy.value = true;
-  try {
-    const r = await tenderApi.setDetailMode(!detailEnabled.value);
-    detailEnabled.value = r.enabled;
-    toast.success(
-      r.enabled
-        ? "eProcure Detail ON — agli scrape me har tender ka full detail (CAPTCHA solve hoga)"
-        : "eProcure Detail OFF — agli scrape me sirf listing data save hoga"
-    );
-  } catch (e) {
-    toast.error(`Detail-mode toggle failed: ${e.message}`);
-  } finally {
-    detailBusy.value = false;
   }
 }
 
@@ -583,8 +528,23 @@ async function submitIrepsOtp() {
   }
 }
 
-function portalStats(code) {
-  return (stats.value.portals || []).find(p => p.code === code) || {};
+const shownPortals = computed(() => {
+  const q = portalSearch.value.trim().toLowerCase();
+  const list = q
+    ? portals.value.filter(p => p.code.includes(q) || (p.name || "").toLowerCase().includes(q))
+    : portals.value;
+  // IREPS (needs the daily OTP login) pinned first, then biggest portals
+  return [...list].sort((a, b) => (Number(b.needs_login) - Number(a.needs_login)) || (b.active - a.active));
+});
+
+function health(portal) {
+  const last = portal.sweeps?.[0];
+  if (!portal.enabled) return { label: "Disabled", badge: "badge-neutral", dot: "bg-slate-400", ok: false };
+  if (!last) return { label: "Not swept", badge: "badge-neutral", dot: "bg-slate-400", ok: false };
+  if (last.status === "running") return { label: "Running", badge: "badge-neutral", dot: "bg-blue-500 animate-pulse", ok: false };
+  if (last.status === "success") return { label: "Healthy", badge: "badge-success", dot: "bg-emerald-500", ok: true };
+  if (last.status === "partial") return { label: "Partial", badge: "badge-warning", dot: "bg-amber-500", ok: false };
+  return { label: "Failed", badge: "badge-danger", dot: "bg-red-500", ok: false };
 }
 
 function to12Hour(hour24, minute) {
@@ -678,53 +638,36 @@ const runMarkers = computed(() => {
 });
 
 // Last 10 runs for a portal
-function last10Runs(portalCode) {
-  const filtered = logs.value.filter(l => l.portal === portalCode).slice(0, 10);
+function last10Runs(portal) {
+  const filtered = (portal.sweeps || []).slice(0, 10);
   // Pad to 10 with nulls if fewer
   while (filtered.length < 10) filtered.push(null);
   return filtered;
 }
 
 function runColor(status) {
-  if (status === "success") return "bg-emerald-400 hover:bg-emerald-500";
-  if (status === "partial") return "bg-amber-400 hover:bg-amber-500";
-  if (status === "failed")  return "bg-red-400 hover:bg-red-500";
-  return "bg-slate-200";
+  return runLook(status).dot;
 }
 
 function runTooltip(run) {
   if (!run) return "No run yet";
-  return `${run.status.toUpperCase()} · ${formatDateTime(run.started_at)} · new: ${run.new_tenders || 0}`;
-}
-
-// Runs today for a portal
-function runsToday(portalCode) {
-  const today = new Date().toISOString().slice(0, 10);
-  return logs.value.filter(l =>
-    l.portal === portalCode && (l.started_at || "").startsWith(today)
-  ).length;
+  return `${run.status.toUpperCase()} · ${formatDateTime(run.started_at)} · listed ${run.listed ?? "-"} · new ${run.new_count ?? 0} · details ${run.details_fetched ?? 0}`;
 }
 
 async function load() {
   loading.value = true;
   try {
-    const [portalsRes, statsRes, statusRes, logsRes] = await Promise.all([
-      tenderApi.listPortals(),
-      tenderApi.getStats(),
-      tenderApi.getStatus(),
-      tenderApi.getLogs(50),
+    const [portalsRes, statusRes] = await Promise.all([
+      tenderApi.listPortals(10),
+      tenderApi.getStatus().catch(() => ({ jobs: [], scheduler_running: false })),
     ]);
     portals.value          = portalsRes.portals || [];
-    stats.value            = statsRes;
     scheduledJobs.value    = statusRes.jobs || [];
     schedulerRunning.value = statusRes.scheduler_running;
-    logs.value             = logsRes.logs || [];
     // IREPS status alag fetch — fail ho to baaki page break na ho
     tenderApi.irepsStatus().then(r => { irepsSession.value = r; }).catch(() => {});
     // Proxy toggle state — alag fetch, fail ho to page break na ho
     refreshProxy();
-    // eProcure detail-mode toggle state — alag fetch
-    refreshDetailMode();
   } catch (e) {
     toast.error(`Failed to load: ${e.message}`);
   } finally {
@@ -733,6 +676,11 @@ async function load() {
 }
 
 async function triggerOne(code) {
+  if (code === "gem" && !window.confirm("GeM ka poora sweep ~6 ghante chalta hai. Abhi shuru karein?")) return;
+  if (code === "ireps" && !irepsSession.value.valid) {
+    toast.error("IREPS session expired — pehle OTP se login karo");
+    return;
+  }
   triggering.value = true;
   try {
     await tenderApi.triggerScrape(code);
@@ -745,6 +693,7 @@ async function triggerOne(code) {
 }
 
 async function triggerAll() {
+  if (!window.confirm("Saare portals ka sweep shuru hoga (GeM ~6 ghante, IREPS ko login chahiye). Pakka?")) return;
   triggering.value = true;
   try {
     await tenderApi.triggerScrape("all");

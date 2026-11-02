@@ -62,7 +62,7 @@
     <div v-if="bookmarks.length" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <TenderCard
         v-for="tender in sortedBookmarks"
-        :key="tender.id"
+        :key="tenderKey(tender)"
         :tender="tender"
       />
     </div>
@@ -116,6 +116,7 @@ import { StarIcon as StarSolidIcon } from "@heroicons/vue/24/solid";
 
 import TenderCard from "../components/TenderCard.vue";
 import { useBookmarks } from "../store/bookmarks";
+import { tenderKey } from "../utils/tender";
 
 const { bookmarks } = useBookmarks();
 const toast = useToast();
@@ -138,7 +139,7 @@ const sortedBookmarks = computed(() => {
   }
   if (sortBy.value === "closing") {
     return list.sort((a, b) =>
-      new Date(a.closing_date || 0) - new Date(b.closing_date || 0)
+      new Date(a.closing_at || 0) - new Date(b.closing_at || 0)
     );
   }
   if (sortBy.value === "title") {

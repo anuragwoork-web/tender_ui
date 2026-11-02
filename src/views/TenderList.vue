@@ -57,7 +57,7 @@
         v-model="searchInput"
         @input="debouncedSearch"
         type="text"
-        placeholder="Search by title, reference, or organisation..."
+        placeholder="Search by title, tender ID, reference or organisation..."
         class="input-field pl-12 text-base"
       />
       <button
@@ -73,6 +73,7 @@
     <FilterPanel
       v-model="filters"
       :portals="portals"
+      :states="states"
       @change="onFilterChange"
     />
 
@@ -97,7 +98,7 @@
     >
       <TenderCard
         v-for="tender in tenders"
-        :key="tender.id"
+        :key="tenderKey(tender)"
         :tender="tender"
       />
     </div>
@@ -143,6 +144,7 @@ import FilterPanel from "../components/FilterPanel.vue";
 import Pagination from "../components/Pagination.vue";
 import { tenderApi } from "../api/tender";
 import { exportTendersToExcel } from "../utils/exportExcel";
+import { DEFAULT_FILTERS, tenderKey } from "../utils/tender";
 
 const route   = useRoute();
 const router  = useRouter();
@@ -150,57 +152,82 @@ const toast   = useToast();
 
 const tenders     = ref([]);
 const portals     = ref([]);
+const states      = ref([]);
 const total       = ref(0);
 const totalPages  = ref(0);
-const currentPage = ref(1);
+const currentPage = ref(Number(route.query.page) || 1);
 const loading     = ref(true);
-const limit       = 20;
+const limit       = 25;
 
-const viewMode = ref(localStorage.getItem("tender_view_mode") || "table");
-watch(viewMode, (val) => localStorage.setItem("tender_view_mode", val));
+function readView() {
+  try { return localStorage.getItem("tender_view_mode") || "table"; } catch { return "table"; }
+}
+const viewMode = ref(readView());
+watch(viewMode, (val) => { try { localStorage.setItem("tender_view_mode", val); } catch { /* ignore */ } });
 
-const searchInput = ref(route.query.search || "");
-const filters = ref({
-  portal:         route.query.portal || "",
-  status:         route.query.status || "",
-  closing_before: route.query.closing_before || "",
-  sort_by:        route.query.sort_by || "published_date",
-});
+const searchInput = ref(route.query.q || "");
+const filters = ref(Object.fromEntries(
+  Object.entries(DEFAULT_FILTERS).map(([k, v]) => [k, route.query[k] ?? v])
+));
 
 const hasActiveFilters = computed(() =>
-  filters.value.portal || filters.value.status ||
-  filters.value.closing_before || searchInput.value
+  searchInput.value ||
+  Object.keys(DEFAULT_FILTERS).some((k) => filters.value[k] !== DEFAULT_FILTERS[k])
 );
 
 async function loadPortals() {
   try {
-    const res = await tenderApi.listPortals();
-    portals.value = res.portals || [];
+    const res = await tenderApi.getStats();
+    portals.value = (res.portals || []).filter((p) => p.total > 0);
   } catch (e) {
     console.error(e);
   }
 }
 
+async function loadStates() {
+  try {
+    const res = await tenderApi.getFacets(filters.value.portal || undefined);
+    states.value = res.states || [];
+  } catch (e) {
+    states.value = [];
+  }
+}
+
+// IST end of the chosen day, so "closes by 5 Nov" includes tenders closing on 5 Nov
+const endOfDayIst = (d) => `${d}T23:59:59+05:30`;
+
 async function loadTenders() {
   loading.value = true;
   try {
+    const f = filters.value;
+    const [sort, order] = (f.sort || DEFAULT_FILTERS.sort).split(":");
     const params = {
-      page:  currentPage.value,
+      page: currentPage.value,
       limit,
-      ...filters.value,
+      portal: f.portal,
+      state: f.state,
+      lifecycle: f.lifecycle,
+      has_detail: f.has_detail,
+      closing_before: f.closing_before ? endOfDayIst(f.closing_before) : "",
+      sort,
+      order,
+      q: searchInput.value.trim(),
     };
-    if (searchInput.value.trim()) params.search = searchInput.value.trim();
-
     Object.keys(params).forEach((k) => {
-      if (params[k] === "" || params[k] === null) delete params[k];
+      if (params[k] === "" || params[k] === null || params[k] === undefined) delete params[k];
     });
 
     const res = await tenderApi.listTenders(params);
-    tenders.value    = res.tenders || [];
+    tenders.value    = res.items || [];
     total.value      = res.total || 0;
-    totalPages.value = res.total_pages || 0;
+    totalPages.value = Math.ceil((res.total || 0) / limit);
 
-    router.replace({ query: params });
+    // URL keeps the UI's own filter values (not the API's), so a reload restores the page
+    const query = { ...f, q: searchInput.value.trim(), page: currentPage.value > 1 ? currentPage.value : "" };
+    Object.keys(query).forEach((k) => {
+      if (query[k] === "" || query[k] === DEFAULT_FILTERS[k]) delete query[k];
+    });
+    router.replace({ query });
   } catch (e) {
     toast.error(`Failed to load tenders: ${e.message}`);
   } finally {
@@ -213,8 +240,14 @@ const debouncedSearch = useDebounceFn(() => {
   loadTenders();
 }, 400);
 
+let lastPortal = filters.value.portal;
 function onFilterChange() {
   currentPage.value = 1;
+  if (filters.value.portal !== lastPortal) {
+    lastPortal = filters.value.portal;
+    filters.value.state = "";
+    loadStates();
+  }
   loadTenders();
 }
 
@@ -232,8 +265,10 @@ function clearSearch() {
 
 function resetAll() {
   searchInput.value = "";
-  filters.value = { portal: "", status: "", closing_before: "", sort_by: "published_date" };
+  filters.value = { ...DEFAULT_FILTERS };
+  lastPortal = "";
   currentPage.value = 1;
+  loadStates();
   loadTenders();
 }
 
@@ -249,16 +284,19 @@ async function onExport() {
   }
 }
 
-watch(() => route.query.search, (val) => {
-  if (val !== searchInput.value) {
-    searchInput.value = val || "";
+watch(() => route.query.portal, (val) => {
+  if ((val || "") !== filters.value.portal) {
+    filters.value = { ...filters.value, portal: val || "", state: "" };
+    lastPortal = filters.value.portal;
     currentPage.value = 1;
+    loadStates();
     loadTenders();
   }
 });
 
 onMounted(async () => {
-  await loadPortals();
+  loadPortals();
+  loadStates();
   await loadTenders();
 });
 </script>

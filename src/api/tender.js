@@ -39,34 +39,33 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Tender ids can contain "/" (GeM: GEM/2026/B/1234567); each path segment is
+// encoded on its own so the slashes stay real path separators.
+const encodeId = (id) => String(id).split("/").map(encodeURIComponent).join("/");
+
 export const tenderApi = {
-  // Dashboard
-  getStats:    ()      => apiClient.get("/stats"),
-  getStatus:   ()      => apiClient.get("/status"),
+  // Collector v1 (tc_* tables — SQLite now, MySQL later via DB_URL on the backend)
+  getStats:      ()              => apiClient.get("/v1/stats"),
+  listTenders:   (params)        => apiClient.get("/v1/tenders", { params }),
+  getTender:     (portal, id)    => apiClient.get(`/v1/tenders/${portal}/${encodeId(id)}`),
+  getTenderEvents: (portal, id)  => apiClient.get(`/v1/tenders/${portal}/${encodeId(id)}/events`),
+  getFacets:     (portal)        => apiClient.get("/v1/facets", { params: portal ? { portal } : {} }),
+  listPortals:   (runs = 10)     => apiClient.get("/v1/portals", { params: { runs } }),
+  getSweeps:     (params)        => apiClient.get("/v1/sweeps", { params }),
+  getChanges:    (params)        => apiClient.get("/v1/changes", { params }),
 
-  // Tenders
-  listTenders: (params) => apiClient.get("/tenders", { params }),
-  getTender:   (id)    => apiClient.get(`/tenders/${id}`),
+  // Scheduler + manual runs (python main.py <portal> in the background)
+  getStatus:     ()              => apiClient.get("/status"),
+  triggerScrape: (portal)        => apiClient.post(`/trigger/${portal}`),
 
-  // Portals
-  listPortals: ()      => apiClient.get("/portals"),
-  triggerScrape: (portal) => apiClient.post(`/trigger/${portal}`),
+  // Proxy toggle (default OFF)
+  getProxy:      ()              => apiClient.get("/proxy"),
+  setProxy:      (enabled)       => apiClient.post("/proxy", null, { params: { enabled } }),
 
-  // Proxy toggle (proxy pool kharab ho tab OFF karke direct IP se test/scrape)
-  getProxy:    ()        => apiClient.get("/proxy"),
-  setProxy:    (enabled) => apiClient.post("/proxy", null, { params: { enabled } }),
-
-  // eProcure detail-mode toggle (OFF = sirf listing data, ON = detail page + CAPTCHA se full detail)
-  getDetailMode: ()        => apiClient.get("/detail-mode"),
-  setDetailMode: (enabled) => apiClient.post("/detail-mode", null, { params: { enabled } }),
-
-  // Logs
-  getLogs:     (limit = 20) => apiClient.get("/logs", { params: { limit } }),
-
-  // IREPS Login (Playwright use karta hai — 30-60s lag sakte hain, timeout badha diya)
-  irepsStatus:  ()       => apiClient.get("/ireps/status"),
-  irepsSendOtp: ()       => apiClient.post("/ireps/send-otp", {}, { timeout: 90000 }),
-  irepsLogin:   (otp)    => apiClient.post("/ireps/login", { otp }, { timeout: 90000 }),
+  // IREPS login (daily OTP; Playwright on the backend — 30-60 s)
+  irepsStatus:   ()              => apiClient.get("/ireps/status"),
+  irepsSendOtp:  ()              => apiClient.post("/ireps/send-otp", {}, { timeout: 90000 }),
+  irepsLogin:    (otp)           => apiClient.post("/ireps/login", { otp }, { timeout: 90000 }),
 };
 
 export default apiClient;

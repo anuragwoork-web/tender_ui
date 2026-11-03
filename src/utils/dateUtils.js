@@ -40,3 +40,19 @@ export function getTenderStatus(closingDate) {
   if (days <= 7) return { label: `${days} days left`, type: "warning" };
   return { label: "Active", type: "success" };
 }
+
+// Collector v1: a tender's stored lifecycle wins over the closing-date guess.
+const LIFECYCLE_LABELS = {
+  closed: { label: "Closed", type: "danger" },
+  "withdrawn_or_cancelled?": { label: "Gone from portal", type: "neutral" },
+  awarded: { label: "Awarded", type: "neutral" },
+  unknown: { label: "Unknown", type: "neutral" },
+};
+
+export function tenderStatus(tender) {
+  if (!tender) return { label: "", type: "neutral" };
+  if (tender.lifecycle && tender.lifecycle !== "active") {
+    return LIFECYCLE_LABELS[tender.lifecycle] || { label: tender.lifecycle, type: "neutral" };
+  }
+  return getTenderStatus(tender.closing_at);
+}

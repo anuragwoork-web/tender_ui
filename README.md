@@ -45,3 +45,26 @@ npm run preview  # build ko locally serve karo
 ## Stack
 
 Vue 3 (`<script setup>`) · Vite · Tailwind CSS · Vue Router
+
+## Local: Collector v1 data dekhna (SQLite)
+
+UI ab backend ke `/v1/*` endpoints padhta hai (collector ke `tc_*` tables).
+Laptop par default database SQLite hai: `tender/data/tenders_v1.db`.
+
+1. Backend (scheduler band, taaki koi sweep apne aap na chale):
+
+   ```sh
+   cd ../tender
+   SCHEDULER_ENABLED=0 python -m uvicorn app:app --host 127.0.0.1 --port 8003
+   ```
+
+   PowerShell: `$env:SCHEDULER_ENABLED="0"; python -m uvicorn app:app --host 127.0.0.1 --port 8003`
+
+2. UI: `.env` mein `VITE_API_URL=http://localhost:8003`, phir `npm install` aur `npm run dev` → http://localhost:5173
+
+MySQL par jaana ho to sirf backend ke `.env` mein `DB_URL=mysql+pymysql://...` — UI mein kuch nahi badalta.
+
+Pages: Dashboard (counts, detail coverage), Tenders (portal/state/status/detail filters, search by
+tender ID), Tender detail (dates, EMD/fee/value, documents, corrigenda, change history, saare portal
+fields), Collector Runs (har sweep: listed/expected, new/changed/gone, details), Portals (42 portals,
+IREPS OTP login, manual trigger).

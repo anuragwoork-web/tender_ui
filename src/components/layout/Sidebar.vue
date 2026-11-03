@@ -37,7 +37,7 @@
 
     <div class="px-4 py-4 border-t border-slate-800">
       <div class="text-xs text-slate-500">
-        v1.1.0 · Intelvo Tech
+        Collector v1 · Intelvo Tech
       </div>
     </div>
   </aside>
@@ -60,7 +60,7 @@ const navItems = computed(() => [
   { path: "/",          label: "Dashboard",   icon: HomeIcon },
   { path: "/tenders",   label: "Tenders",     icon: DocumentTextIcon },
   { path: "/bookmarks", label: "Bookmarks",   icon: StarIcon, badge: bookmarks.value.length || null },
-  { path: "/logs",      label: "Scrape Logs", icon: ClipboardDocumentListIcon },
+  { path: "/logs",      label: "Collector Runs", icon: ClipboardDocumentListIcon },
   { path: "/portals",   label: "Portals",     icon: Cog6ToothIcon },
 ]);
 </script>

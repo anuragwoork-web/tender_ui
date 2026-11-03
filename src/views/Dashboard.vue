@@ -5,10 +5,13 @@
         <h1 class="text-3xl font-bold text-slate-900">Dashboard</h1>
         <p class="text-slate-500 mt-1">All-India tender collector — live view of the collector database</p>
       </div>
-      <button @click="refresh" class="btn-ghost flex items-center gap-2">
-        <ArrowPathIcon class="w-4 h-4" :class="{ 'animate-spin': loading }" />
-        Refresh
-      </button>
+      <div class="flex items-center gap-3">
+        <ReportButton />
+        <button @click="refresh" class="btn-ghost flex items-center gap-2">
+          <ArrowPathIcon class="w-4 h-4" :class="{ 'animate-spin': loading }" />
+          Refresh
+        </button>
+      </div>
     </div>
 
     <!-- Stats -->
@@ -166,6 +169,7 @@ import {
 } from "@heroicons/vue/24/outline";
 
 import StatCard from "../components/StatCard.vue";
+import ReportButton from "../components/ReportButton.vue";
 import StatusBadge from "../components/StatusBadge.vue";
 import { tenderApi } from "../api/tender";
 import { formatRelative } from "../utils/dateUtils";

@@ -53,6 +53,8 @@ export const tenderApi = {
   listPortals:   (runs = 10)     => apiClient.get("/v1/portals", { params: { runs } }),
   getSweeps:     (params)        => apiClient.get("/v1/sweeps", { params }),
   getChanges:    (params)        => apiClient.get("/v1/changes", { params }),
+  // One-click diagnostics zip (counts, sweeps, field completeness, log tails; no secrets)
+  downloadReport: () => apiClient.get("/v1/report", { responseType: "blob", timeout: 120000, transformResponse: (d) => d }),
 
   // Scheduler + manual runs (python main.py <portal> in the background)
   getStatus:     ()              => apiClient.get("/status"),

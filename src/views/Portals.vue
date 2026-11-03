@@ -9,7 +9,8 @@
         </p>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 flex-wrap">
+        <ReportButton />
         <!-- PROXY TOGGLE — proxy pool kharab ho tab OFF karke direct IP se scrape -->
         <button
           v-if="proxyConfigured"
@@ -438,6 +439,7 @@ import {
   MagnifyingGlassIcon,
 } from "@heroicons/vue/24/outline";
 
+import ReportButton from "../components/ReportButton.vue";
 import { tenderApi } from "../api/tender";
 import { formatRelative, formatDateTime } from "../utils/dateUtils";
 import { runLook } from "../utils/runs";

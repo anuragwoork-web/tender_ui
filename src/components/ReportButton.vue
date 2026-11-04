@@ -24,7 +24,7 @@ async function download() {
   busy.value = true;
   try {
     const blob = await tenderApi.downloadReport();
-    const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+    const stamp = new Date().toISOString().slice(0, 16).split("-").join("").split(":").join("").split("T").join("");
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

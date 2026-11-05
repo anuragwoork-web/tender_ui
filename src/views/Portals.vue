@@ -5,7 +5,7 @@
       <div>
         <h1 class="text-3xl font-bold text-slate-900">Portals</h1>
         <p class="text-slate-500 mt-1">
-          Collector portals · sweeps at 03:00, 09:00, 15:00, 21:00 IST (when the scheduler is on)
+          Collector portals · har portal apni baari par chalta hai, koi fixed time nahi
         </p>
       </div>
 
@@ -50,7 +50,7 @@
 
     <!-- HERO SCHEDULE CARD -->
     <div
-      v-if="scheduledJobs.length"
+      v-if="schedulerRunning"
       class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-primary-900 text-white shadow-card"
     >
       <!-- Decorative blobs -->
@@ -83,74 +83,37 @@
             </div>
           </div>
 
-          <!-- Live countdown -->
           <div class="text-right">
-            <p class="text-xs uppercase tracking-wider text-slate-400 mb-1.5">Next run in</p>
-            <div class="flex items-center gap-1.5 font-mono">
-              <div
-                v-for="(part, i) in countdownParts"
-                :key="i"
-                class="flex flex-col items-center"
-              >
-                <div class="px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-2xl font-bold tabular-nums min-w-[3rem] text-center">
-                  {{ part.value }}
-                </div>
-                <span class="text-[10px] text-slate-400 uppercase tracking-widest mt-1">
-                  {{ part.label }}
-                </span>
-              </div>
-            </div>
+            <p class="text-xs uppercase tracking-wider text-slate-400 mb-1.5">Chal rahe hain</p>
+            <p class="text-3xl font-bold tabular-nums">{{ queueRunning.length }}</p>
           </div>
         </div>
 
-        <!-- Day progress bar -->
-        <div class="mb-2 flex items-center justify-between text-xs text-slate-400">
-          <span>00:00</span>
-          <span class="font-semibold text-slate-200">Today's Timeline</span>
-          <span>23:59</span>
-        </div>
-        <div class="relative h-2 rounded-full bg-white/10 mb-3">
-          <!-- Day progress -->
-          <div
-            class="absolute top-0 left-0 h-full rounded-full bg-gradient-to-r from-primary-400 to-indigo-400 transition-all duration-1000"
-            :style="{ width: dayProgress + '%' }"
-          />
-          <!-- Run time markers -->
-          <div
-            v-for="run in runMarkers"
-            :key="run.key"
-            class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 group"
-            :style="{ left: run.percent + '%' }"
-          >
-            <div
-              class="w-4 h-4 rounded-full border-2 transition-all duration-300"
-              :class="run.done
-                ? 'bg-emerald-400 border-emerald-300 shadow-glow'
-                : run.next
-                  ? 'bg-amber-400 border-amber-300 shadow-glow animate-pulse'
-                  : 'bg-white border-white/60'"
-            />
-            <div class="absolute top-6 left-1/2 -translate-x-1/2 whitespace-nowrap">
+        <div class="grid md:grid-cols-2 gap-6">
+          <div>
+            <p class="text-xs uppercase tracking-wider text-slate-400 mb-2">Abhi chal rahe</p>
+            <p v-if="!queueRunning.length" class="text-sm text-slate-400">Koi nahi</p>
+            <div class="flex flex-wrap gap-2">
               <span
-                class="text-[11px] font-bold tabular-nums"
-                :class="run.next ? 'text-amber-300' : 'text-slate-300'"
+                v-for="r in queueRunning"
+                :key="r.portal"
+                class="px-2.5 py-1 rounded-lg bg-white/10 border border-white/20 text-xs font-semibold uppercase"
               >
-                {{ run.label }}
+                {{ r.portal }}
               </span>
             </div>
           </div>
-          <!-- Now marker -->
-          <div
-            class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2"
-            :style="{ left: dayProgress + '%' }"
-          >
-            <div class="w-3 h-3 rounded-full bg-rose-500 ring-4 ring-rose-500/30 animate-pulse" />
+          <div>
+            <p class="text-xs uppercase tracking-wider text-slate-400 mb-2">Agli baari</p>
+            <p v-if="!queueNext.length" class="text-sm text-slate-400">Abhi kuch nahi</p>
+            <ul class="space-y-1 text-sm">
+              <li v-for="r in queueNext" :key="r.portal" class="flex justify-between gap-4">
+                <span class="font-semibold uppercase">{{ r.portal }}</span>
+                <span class="text-slate-300 text-xs text-right">{{ queueLabel(r) }}</span>
+              </li>
+            </ul>
           </div>
         </div>
-
-        <p class="text-center text-xs text-slate-400 mt-8">
-          🟢 Done today · 🟡 Up next · ⚪ Upcoming · 🔴 Now
-        </p>
       </div>
     </div>
 
@@ -337,10 +300,21 @@
                 >
                   <ArrowPathIcon v-if="irepsSending" class="w-4 h-4 animate-spin" />
                   <DevicePhoneMobileIcon v-else class="w-4 h-4" />
-                  {{ irepsSending ? 'OTP bhej raha hai...' : 'Send OTP to Mobile' }}
+                  {{ irepsSending
+                      ? (irepsSession.otp_saved_today ? 'Login ho raha hai...' : 'OTP bhej raha hai...')
+                      : (irepsSession.otp_saved_today ? "Login with today's OTP" : 'Send OTP to Mobile') }}
+                </button>
+                <button
+                  v-if="!irepsSession.otp_saved_today"
+                  @click="irepsOtpSent = true"
+                  class="w-full mt-2 text-xs text-amber-700 hover:text-amber-900 underline"
+                >
+                  Aaj ka OTP pehle se hai? Yahan daalo
                 </button>
                 <p class="text-[11px] text-amber-500 mt-2 text-center">
-                  OTP {{ IREPS_MOBILE_HINT }} pe SMS se aayega
+                  {{ irepsSession.otp_saved_today
+                      ? 'Aaj ka OTP saved hai, naya SMS nahi jayega'
+                      : `OTP ${IREPS_MOBILE_HINT} pe SMS se aayega. Poore din wahi chalta hai` }}
                 </p>
               </div>
 
@@ -417,7 +391,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useToast } from "vue-toastification";
 import {
   BoltIcon,
@@ -445,7 +419,8 @@ import { formatRelative, formatDateTime } from "../utils/dateUtils";
 import { runLook } from "../utils/runs";
 
 const portals          = ref([]);
-const scheduledJobs    = ref([]);
+const queueRunning     = ref([]);
+const queueUpcoming    = ref([]);
 const schedulerRunning = ref(false);
 const loading          = ref(true);
 const triggering       = ref(false);
@@ -503,7 +478,12 @@ async function refreshIrepsStatus() {
 async function sendIrepsOtp() {
   irepsSending.value = true;
   try {
-    await tenderApi.irepsSendOtp();
+    const res = await tenderApi.irepsSendOtp();
+    if (res.relogged) {
+      irepsSession.value = { valid: true, saved_date: res.saved_date, message: res.message, otp_saved_today: true };
+      toast.success("IREPS login ho gaya (aaj ke saved OTP se)");
+      return;
+    }
     irepsOtpSent.value = true;
     toast.info("OTP mobile pe bhej diya — SMS check karo");
   } catch (e) {
@@ -519,7 +499,7 @@ async function submitIrepsOtp() {
   irepsLogging.value = true;
   try {
     const res = await tenderApi.irepsLogin(otp);
-    irepsSession.value = { valid: true, saved_date: res.saved_date, message: res.message };
+    irepsSession.value = { valid: true, saved_date: res.saved_date, message: res.message, otp_saved_today: true };
     irepsOtp.value    = "";
     irepsOtpSent.value = false;
     toast.success(`IREPS login successful — session saved for ${res.saved_date}`);
@@ -549,95 +529,16 @@ function health(portal) {
   return { label: "Failed", badge: "badge-danger", dot: "bg-red-500", ok: false };
 }
 
-function to12Hour(hour24, minute) {
-  const period = hour24 >= 12 ? "PM" : "AM";
-  let h = hour24 % 12;
-  if (h === 0) h = 12;
-  const hh = String(h).padStart(2, "0");
-  const mm = String(minute).padStart(2, "0");
-  return `${hh}:${mm} ${period}`;
+const QUEUE_SHOWN = 8;
+const queueNext = computed(() => queueUpcoming.value.slice(0, QUEUE_SHOWN));
+
+function queueLabel(r) {
+  if (r.waiting_for === "waiting for today's login") return "login ka wait";
+  if (r.waiting_for) return "raat 1 se 7 baje ke beech";
+  if (!r.due_in_min) return "khali slot milte hi";
+  if (r.due_in_min < 60) return `${r.due_in_min} min mein`;
+  return `${Math.round(r.due_in_min / 60)} ghante mein`;
 }
-
-// Live ticking clock
-const now = ref(Date.now());
-let tickInterval = null;
-
-onMounted(() => {
-  tickInterval = setInterval(() => { now.value = Date.now(); }, 1000);
-});
-onUnmounted(() => {
-  if (tickInterval) clearInterval(tickInterval);
-});
-
-const countdownParts = computed(() => {
-  const nextRun = scheduledJobs.value[0]?.next_run;
-  if (!nextRun) return [{ value: "--", label: "h" }, { value: "--", label: "m" }, { value: "--", label: "s" }];
-
-  let diff = Math.max(0, new Date(nextRun).getTime() - now.value);
-  const hours   = Math.floor(diff / 3_600_000); diff -= hours * 3_600_000;
-  const minutes = Math.floor(diff / 60_000);    diff -= minutes * 60_000;
-  const seconds = Math.floor(diff / 1000);
-
-  return [
-    { value: String(hours).padStart(2, "0"),   label: "h" },
-    { value: String(minutes).padStart(2, "0"), label: "m" },
-    { value: String(seconds).padStart(2, "0"), label: "s" },
-  ];
-});
-
-// Parse scheduled run times → [{ hour, minute, key }]
-const scheduledRuns = computed(() => {
-  const list = [];
-  scheduledJobs.value.forEach(j => {
-    const hourMatch   = j.trigger?.match(/hour\s*=\s*'([^']+)'/);
-    const minuteMatch = j.trigger?.match(/minute\s*=\s*'([^']+)'/);
-    if (!hourMatch) return;
-    const hours   = hourMatch[1].split(",").map(h => Number(h.trim()));
-    const minutes = minuteMatch ? minuteMatch[1].split(",").map(m => Number(m.trim())) : [0];
-    hours.forEach(h => {
-      minutes.forEach(m => {
-        list.push({ hour: h, minute: m, key: h * 100 + m });
-      });
-    });
-  });
-  return list.sort((a, b) => a.key - b.key);
-});
-
-// Day progress 0-100% (current time / 24h)
-const dayProgress = computed(() => {
-  const d = new Date(now.value);
-  const totalMin = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
-  return (totalMin / (24 * 60)) * 100;
-});
-
-// Run markers with done/next state
-const runMarkers = computed(() => {
-  const currentMin = (() => {
-    const d = new Date(now.value);
-    return d.getHours() * 60 + d.getMinutes();
-  })();
-
-  // Find next run
-  let nextIdx = -1;
-  for (let i = 0; i < scheduledRuns.value.length; i++) {
-    if (scheduledRuns.value[i].hour * 60 + scheduledRuns.value[i].minute > currentMin) {
-      nextIdx = i;
-      break;
-    }
-  }
-
-  return scheduledRuns.value.map((r, i) => {
-    const runMin = r.hour * 60 + r.minute;
-    const percent = (runMin / (24 * 60)) * 100;
-    return {
-      key:    r.key,
-      label:  to12Hour(r.hour, r.minute),
-      percent,
-      done:   runMin <= currentMin,
-      next:   i === nextIdx,
-    };
-  });
-});
 
 // Last 10 runs for a portal
 function last10Runs(portal) {
@@ -661,10 +562,11 @@ async function load() {
   try {
     const [portalsRes, statusRes] = await Promise.all([
       tenderApi.listPortals(10),
-      tenderApi.getStatus().catch(() => ({ jobs: [], scheduler_running: false })),
+      tenderApi.getStatus().catch(() => ({ queue: null, scheduler_running: false })),
     ]);
     portals.value          = portalsRes.portals || [];
-    scheduledJobs.value    = statusRes.jobs || [];
+    queueRunning.value     = statusRes.queue?.running || [];
+    queueUpcoming.value    = statusRes.queue?.upcoming || [];
     schedulerRunning.value = statusRes.scheduler_running;
     // IREPS status alag fetch — fail ho to baaki page break na ho
     tenderApi.irepsStatus().then(r => { irepsSession.value = r; }).catch(() => {});

@@ -108,7 +108,9 @@
             <p v-if="!queueNext.length" class="text-sm text-slate-400">Abhi kuch nahi</p>
             <ul class="space-y-1 text-sm">
               <li v-for="r in queueNext" :key="r.portal" class="flex justify-between gap-4">
-                <span class="font-semibold uppercase">{{ r.portal }}</span>
+                <span class="font-semibold uppercase">
+                  {{ r.portal }}<span v-if="r.next_mode === 'details'" class="normal-case font-normal text-slate-400"> · sirf details</span>
+                </span>
                 <span class="text-slate-300 text-xs text-right">{{ queueLabel(r) }}</span>
               </li>
             </ul>
@@ -228,6 +230,24 @@
                   {{ portal.active ? Math.round((portal.with_detail / portal.active) * 100) : 0 }}%
                 </p>
               </div>
+            </div>
+
+            <!-- COVERAGE ALARM: 2 full listings in a row short of the portal's own count -->
+            <div
+              v-if="portal.coverage?.alarm"
+              class="mb-5 rounded-xl border border-red-200 bg-red-50 p-3"
+            >
+              <p class="text-sm font-semibold text-red-800">
+                Tender chhoot rahe hain: {{ portal.coverage.short_runs_in_a_row }} run se lagatar kami
+              </p>
+              <p class="text-xs text-red-700 mt-0.5">
+                <template v-if="portal.coverage.last_error">Last run fail: {{ portal.coverage.last_error }}</template>
+                <template v-else>
+                  Portal {{ (portal.coverage.last_expected || 0).toLocaleString("en-IN") }} bolta hai,
+                  humne {{ (portal.coverage.last_listed || 0).toLocaleString("en-IN") }} paaye
+                  ({{ (portal.coverage.missing || 0).toLocaleString("en-IN") }} kam)
+                </template>
+              </p>
             </div>
 
             <!-- ACTIVITY DOTS (last 10 runs) -->
@@ -554,7 +574,10 @@ function runColor(status) {
 
 function runTooltip(run) {
   if (!run) return "No run yet";
-  return `${run.status.toUpperCase()} · ${formatDateTime(run.started_at)} · listed ${run.listed ?? "-"} · new ${run.new_count ?? 0} · details ${run.details_fetched ?? 0}`;
+  if (run.kind === "details") {
+    return `${run.status.toUpperCase()} · ${formatDateTime(run.started_at)} · details only · details ${run.details_fetched ?? 0}`;
+  }
+  return `${run.status.toUpperCase()} · ${formatDateTime(run.started_at)} · listed ${run.listed ?? "-"}/${run.expected ?? "-"} · new ${run.new_count ?? 0} · details ${run.details_fetched ?? 0}`;
 }
 
 async function load() {

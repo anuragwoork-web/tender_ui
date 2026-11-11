@@ -24,7 +24,9 @@ async function download() {
   busy.value = true;
   try {
     const blob = await tenderApi.downloadReport();
-    const stamp = new Date().toISOString().slice(0, 16).split("-").join("").split(":").join("").split("T").join("");
+    // IST, whatever the browser's zone: shift by +05:30, then read the UTC fields.
+    const ist = new Date(Date.now() + 330 * 60 * 1000).toISOString();
+    const stamp = ist.slice(0, 10).split("-").join("") + "-" + ist.slice(11, 16).split(":").join("");
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
